@@ -187,19 +187,50 @@ emulator/device before being committed, not just compiled.
       Room persistence, with WorkManager-driven progress UI. Verified against real tagged
       FLAC/MP3 fixtures (embedded plain lyrics, embedded synced lyrics, embedded cover art all
       confirmed round-tripping correctly into Room).
-- [ ] **Phase 2** — Media3 playback service (`MediaLibraryService`), notification/lockscreen
-      controls, mini-player.
-- [ ] **Phase 3** — Real library browse UI (albums/artists/tracks/search), replacing the
-      current placeholder screen.
-- [ ] **Phase 4** — `LyricsRepository` fallback chain (embedded → LRCLIB → lyrics.ovh →
-      Genius), Room lyrics cache, Retrofit/OkHttp network clients.
-- [ ] **Phase 5** — Lyrics screen UI: blurred background, synced line highlight/scroll.
-- [ ] **Phase 6** — Queue & playlists (Room-persisted).
-- [ ] **Phase 7** — Android Auto (`MediaLibraryService` browse tree).
-- [ ] **Phase 8** — AAudio exclusive-mode native sink (see *Hi-res audio plan* above);
-      feasibility spike on real hardware before investing in the full native module.
-- [ ] **Phase 9** — Polish (icon, empty/error states, unit tests), production signing config,
-      first signed release.
+- [x] **Phase 2** — Media3 playback service (`MediaLibraryService`), notification/lockscreen
+      controls, mini-player. Verified end-to-end on a real emulator: playback, queue
+      auto-advance, and lockscreen/notification transport controls all confirmed working with
+      real tagged MP3 fixtures.
+- [x] **Phase 3** — Real library browse UI (albums/artists/tracks/search), replacing the
+      Phase 1 placeholder screen. Verified on-device: SAF scan → Tracks/Albums/Artists tabs,
+      album/artist detail screens, search all confirmed working.
+- [x] **Phase 4** — `LyricsRepository` fallback chain (embedded → LRCLIB → lyrics.ovh →
+      Genius, Genius gated off by default behind `LyricsFeatureFlags.GENIUS_ENABLED`), Room
+      lyrics cache (`lyrics_cache` table, DB version bumped to 2), Retrofit/OkHttp network
+      clients. Verified: embedded-lyrics shortcut and the network chain (falling through to "not
+      found" for a fictional test track) both exercised on-device.
+- [x] **Phase 5** — Lyrics screen UI: blurred cover-art background (`RenderEffect`), dark scrim,
+      synced line highlight/auto-scroll, playback controls. Verified on-device with a real
+      embedded ID3 SYLT fixture — highlighting and centering confirmed visually correct.
+- [x] **Phase 6** — Queue & playlists (Room-persisted: `playlists` + `playlist_tracks` tables,
+      DB version bumped to 3), plus queue-state persistence (`QueueStateStore` via DataStore) so
+      `PlaybackService` can answer `MediaSession.Callback.onPlaybackResumption`. Verified
+      on-device: create/add/remove/delete playlist and playlist playback all confirmed working;
+      the resumption code path itself is implemented against the real Media3 API but wasn't
+      exercised by an actual system resumption request in this session.
+- [x] **Phase 7** — Android Auto (`MediaLibraryService` browse tree: root → Albums/Artists/All
+      tracks → tracks; `automotive_app_desc.xml` declares the `media` capability). Compiles
+      against the real Media3 API and the app's own `MediaController` connects to the service
+      without issue, but the browse tree itself has not been walked by an actual Android Auto
+      head unit (e.g. Desktop Head Unit) — that's still open.
+- [x] **Phase 8** — AAudio exclusive-mode native sink, scoped deliberately as the feasibility
+      spike this phase is meant to be (see *Hi-res audio plan*): `:audio-native` now has a real
+      JNI/AAudio bridge (`aaudio_sink.cpp`, `AudioNativeSink.kt`) that requests exclusive mode,
+      falls back to shared on failure, and always re-checks `AAudioStream_getSharingMode()`
+      after opening. `LumioApplication` runs it once at startup and logs the result to
+      `LumioAAudioFeasibility` (`adb logcat -s LumioAAudioFeasibility`). On the development
+      emulator it correctly detected and logged a silent downgrade to shared mode — check this
+      log on the real phone before deciding whether the full custom `AudioSink` is worth
+      building. That full `AudioSink` adapter itself is *not* implemented — this phase
+      intentionally stops at the spike.
+- [~] **Phase 9** — Polish: empty/error states audited and filled in across all library tabs and
+      detail screens; unit tests added for `LrcParser` and `Id3UsltSyltDecoder` (13 tests, all
+      passing — `./gradlew :app:testDebugUnitTest`). Production signing config was already wired
+      in Phase 0/1 (`keystore.properties`, see *Release signing* below) and still works
+      unmodified. Not done: a redesigned app icon (still the Phase 0 placeholder) and the first
+      actual signed release — both left for the person to decide on/do, since a release keystore
+      and a published GitHub Release are exactly the kind of machine-specific, externally-visible
+      steps this file says to keep off the assistant's plate.
 
 ## Release signing
 

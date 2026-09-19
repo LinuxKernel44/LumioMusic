@@ -9,4 +9,48 @@
 
     <string name="library_track_count">Library: %1$d track(s)</string>
     <string name="library_rescan_button">Rescan</string>
+
+    <string name="playback_channel_name">Playback</string>
+    <string name="mini_player_play">Play</string>
+    <string name="mini_player_pause">Pause</string>
+    <string name="mini_player_next">Next track</string>
+    <string name="mini_player_previous">Previous track</string>
+    <string name="mini_player_unknown_title">Unknown title</string>
+    <string name="mini_player_unknown_artist">Unknown artist</string>
+
+    <string name="library_tab_tracks">Tracks</string>
+    <string name="library_tab_albums">Albums</string>
+    <string name="library_tab_artists">Artists</string>
+    <string name="library_search_hint">Search tracks, artists, albums…</string>
+    <string name="library_search_action">Search</string>
+    <string name="library_search_close_action">Close search</string>
+    <string name="library_rescan_action">Rescan library</string>
+    <string name="library_empty">No tracks yet</string>
+    <string name="album_track_count">%1$d track(s)</string>
+    <string name="artist_album_count">%1$d album(s) · %2$d track(s)</string>
+    <string name="navigate_back">Back</string>
+
+    <string name="lyrics_loading">Loading lyrics…</string>
+    <string name="lyrics_not_found">No lyrics found</string>
+    <string name="lyrics_collapse">Collapse</string>
+
+    <string name="library_tab_playlists">Playlists</string>
+    <string name="add_to_playlist_action">Add to playlist</string>
+    <string name="add_to_playlist_title">Add to playlist</string>
+    <string name="add_to_playlist_new_name">New playlist name</string>
+    <string name="add_to_playlist_create">Create</string>
+    <string name="dialog_cancel">Cancel</string>
+    <string name="playlist_empty">No tracks in this playlist yet</string>
+    <string name="playlists_empty">No playlists yet</string>
+    <string name="new_playlist_action">New playlist</string>
+    <string name="remove_from_playlist_action">Remove from playlist</string>
+    <string name="delete_playlist_action">Delete playlist</string>
+
+    <string name="browse_albums">Albums</string>
+    <string name="browse_artists">Artists</string>
+    <string name="browse_all_tracks">All tracks</string>
+
+    <string name="albums_empty">No albums yet</string>
+    <string name="artists_empty">No artists yet</string>
+    <string name="search_empty">No results</string>
 </resources>

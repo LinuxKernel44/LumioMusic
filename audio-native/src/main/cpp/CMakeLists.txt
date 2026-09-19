@@ -3,10 +3,13 @@ project("lumionative")
 
 add_library(lumionative SHARED
     jni_bridge.cpp
+    aaudio_sink.cpp
 )
 
 find_library(log-lib log)
+find_library(aaudio-lib aaudio)
 
 target_link_libraries(lumionative
     ${log-lib}
+    ${aaudio-lib}
 )

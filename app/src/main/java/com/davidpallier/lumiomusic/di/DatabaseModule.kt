@@ -3,6 +3,8 @@ package com.davidpallier.lumiomusic.di
 import android.content.Context
 import androidx.room.Room
 import com.davidpallier.lumiomusic.data.db.AppDatabase
+import com.davidpallier.lumiomusic.data.db.LyricsCacheDao
+import com.davidpallier.lumiomusic.data.db.PlaylistDao
 import com.davidpallier.lumiomusic.data.db.TrackDao
 import dagger.Module
 import dagger.Provides
@@ -25,4 +27,10 @@ object DatabaseModule {
 
     @Provides
     fun provideTrackDao(db: AppDatabase): TrackDao = db.trackDao()
+
+    @Provides
+    fun provideLyricsCacheDao(db: AppDatabase): LyricsCacheDao = db.lyricsCacheDao()
+
+    @Provides
+    fun providePlaylistDao(db: AppDatabase): PlaylistDao = db.playlistDao()
 }
