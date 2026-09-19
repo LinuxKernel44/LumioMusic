@@ -17,9 +17,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import com.davidpallier.lumiomusic.R
 import com.davidpallier.lumiomusic.data.library.ScanWorker
 
 @Composable
@@ -47,7 +49,7 @@ fun ScanProgressScreen(onScanFinished: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Analyse de ta bibliothèque…", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.scan_progress_title), style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.padding(top = 16.dp))
         if (total > 0) {
             LinearProgressIndicator(progress = { scanned.toFloat() / total.toFloat() })

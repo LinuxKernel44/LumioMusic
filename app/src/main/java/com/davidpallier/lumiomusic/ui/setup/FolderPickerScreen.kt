@@ -13,9 +13,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.davidpallier.lumiomusic.R
 
 @Composable
 fun FolderPickerScreen(
@@ -39,13 +41,13 @@ fun FolderPickerScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Choisis le dossier racine de ta bibliothèque musicale (carte SD ou stockage interne)",
+            text = stringResource(R.string.folder_picker_prompt),
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.padding(top = 24.dp))
         Button(onClick = { launcher.launch(null) }) {
-            Text("Choisir un dossier")
+            Text(stringResource(R.string.folder_picker_choose_button))
         }
     }
 }

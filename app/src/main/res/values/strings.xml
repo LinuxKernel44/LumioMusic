@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">LumioMusic</string>
+
+    <string name="folder_picker_prompt">Choose the root folder of your music library (SD card or internal storage)</string>
+    <string name="folder_picker_choose_button">Choose a folder</string>
+
+    <string name="scan_progress_title">Scanning your library…</string>
+
+    <string name="library_track_count">Library: %1$d track(s)</string>
+    <string name="library_rescan_button">Rescan</string>
 </resources>

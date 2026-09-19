@@ -13,8 +13,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.davidpallier.lumiomusic.R
 
 /**
  * Phase 1 placeholder: confirms the scanned library landed in Room. Replaced by the real
@@ -31,10 +33,10 @@ fun LibraryPlaceholderScreen(viewModel: LibraryPlaceholderViewModel = hiltViewMo
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Bibliothèque : $count titre(s)", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.library_track_count, count), style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.padding(top = 16.dp))
         Button(onClick = viewModel::rescan) {
-            Text("Relancer un scan")
+            Text(stringResource(R.string.library_rescan_button))
         }
     }
 }
