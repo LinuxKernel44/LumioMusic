@@ -79,6 +79,8 @@ dependencies {
     implementation(project(":audio-native"))
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.guava)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
