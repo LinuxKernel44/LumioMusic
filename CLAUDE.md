@@ -176,6 +176,12 @@ from Media3 natively, no custom parsing needed.
   Media3 path if exclusive mode wasn't actually granted — many devices downgrade silently.
   Never assume exclusive mode succeeded.
 
+## Version
+
+Current version: **2.0.0** (`versionCode 2`, set in `app/build.gradle.kts`). `v0.1.0` was the
+first signed release; 2.0.0 is the first release that treats the phase 0-9 feature set as the
+baseline. Bump `versionCode` on every release; release tags are `vX.Y.Z`.
+
 ## Status (update this section as phases land)
 
 Phases refer to the original build plan; each was manually verified end-to-end on a real
