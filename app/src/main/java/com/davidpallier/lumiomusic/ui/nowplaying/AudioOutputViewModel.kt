@@ -17,7 +17,7 @@ import javax.inject.Inject
 data class AudioOutputUiState(
     val usbDacName: String? = null,
     val status: AudioOutputStatus = AudioOutputStatus(),
-    val bitPerfectEnabled: Boolean = true,
+    val bitPerfectEnabled: Boolean = false,
     val osSupportsBitPerfect: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
 )
 

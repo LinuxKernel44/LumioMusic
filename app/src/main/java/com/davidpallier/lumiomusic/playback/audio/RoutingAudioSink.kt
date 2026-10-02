@@ -163,6 +163,7 @@ class RoutingAudioSink(
     private fun fallBackToStandard() {
         Log.w(TAG, "Bit-perfect output failed; falling back to the standard Android mixer for this session")
         bitPerfectFailed = true
+        outputManager.reportFailure()
         pendingSwitch = null
         val args = lastArgs ?: return
         publishFallback(args.format, FallbackReason.DAC_REJECTED)

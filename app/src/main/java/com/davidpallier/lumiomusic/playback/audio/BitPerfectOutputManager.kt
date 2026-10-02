@@ -53,7 +53,57 @@ class BitPerfectOutputManager @Inject constructor(
 
     private var engagedDevice: AudioDeviceInfo? = null
 
+    init {
+        // The platform keeps our preferred mixer attributes (and routes *every* track of this uid
+        // to the bit-perfect output) even after the process is killed or crashes, until they are
+        // cleared. On the OnePlus 15 a leftover entry silences all playback, so start every
+        // process - and every DAC attach - from a clean slate.
+        clearStalePreferences()
+        audioManager.registerAudioDeviceCallback(
+            object : android.media.AudioDeviceCallback() {
+                override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
+                    if (engagedDevice == null) clearStalePreferences()
+                }
+            },
+            android.os.Handler(android.os.Looper.getMainLooper())
+        )
+    }
+
+    private fun clearStalePreferences() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+        try {
+            audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                .filter { it.type == AudioDeviceInfo.TYPE_USB_DEVICE || it.type == AudioDeviceInfo.TYPE_USB_HEADSET }
+                .forEach { clearStaleApi34(it) }
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "clearing stale preferred mixer attributes failed", e)
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    private fun clearStaleApi34(device: AudioDeviceInfo) {
+        val stale = audioManager.getPreferredMixerAttributes(audioAttributes, device)
+        if (stale != null) {
+            Log.w(TAG, "clearing stale preferred mixer attributes on '${device.productName}': " +
+                "rate=${stale.format.sampleRate} enc=${stale.format.encoding}")
+        }
+        // Clear unconditionally: the platform can hold an entry that getPreferredMixerAttributes
+        // doesn't report for our attributes.
+        audioManager.clearPreferredMixerAttributes(audioAttributes, device)
+    }
+
     fun decide(format: Format): BitPerfectDecision {
+        val decision = decideInternal(format)
+        val summary = when (decision) {
+            is BitPerfectDecision.Use -> "USE ${decision.plan.output} on ${decision.plan.device.productName}"
+            is BitPerfectDecision.Fallback -> "FALLBACK ${decision.reason}"
+        }
+        Log.i(TAG, "decide(rate=${format.sampleRate} ch=${format.channelCount} enc=${format.pcmEncoding} " +
+            "delay=${format.encoderDelay}/${format.encoderPadding}) -> $summary")
+        return decision
+    }
+
+    private fun decideInternal(format: Format): BitPerfectDecision {
         val device = usbDacMonitor.device.value ?: return BitPerfectDecision.Fallback(FallbackReason.NO_USB_DAC)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             return BitPerfectDecision.Fallback(FallbackReason.OS_TOO_OLD)
@@ -79,8 +129,9 @@ class BitPerfectOutputManager @Inject constructor(
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private fun plan(device: AudioDeviceInfo, source: SourcePcm): BitPerfectDecision {
         val supported = try {
-            audioManager.getSupportedMixerAttributes(device)
-                .filter { it.mixerBehavior == AudioMixerAttributes.MIXER_BEHAVIOR_BIT_PERFECT }
+            val all = audioManager.getSupportedMixerAttributes(device)
+            logSupportedOnce(device, all)
+            all.filter { it.mixerBehavior == AudioMixerAttributes.MIXER_BEHAVIOR_BIT_PERFECT }
         } catch (e: RuntimeException) {
             Log.w(TAG, "getSupportedMixerAttributes failed", e)
             emptyList()
@@ -107,12 +158,28 @@ class BitPerfectOutputManager @Inject constructor(
         }
     }
 
+    private var lastLoggedDeviceId = -1
+
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    private fun logSupportedOnce(device: AudioDeviceInfo, all: List<AudioMixerAttributes>) {
+        if (device.id == lastLoggedDeviceId) return
+        lastLoggedDeviceId = device.id
+        Log.i(TAG, "USB device '${device.productName}' type=${device.type} id=${device.id} " +
+            "rates=${device.sampleRates.toList()} encodings=${device.encodings.toList()} " +
+            "channelMasks=${device.channelMasks.toList()} -> ${all.size} mixer attribute set(s)")
+        all.forEach {
+            Log.i(TAG, "  mixer attrs: behavior=${it.mixerBehavior} rate=${it.format.sampleRate} " +
+                "mask=${it.format.channelMask} enc=${it.format.encoding}")
+        }
+    }
+
     /** Registers the plan with the platform. Must happen before the matching AudioTrack exists. */
     fun engage(plan: BitPerfectPlan): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return false
         return try {
             val ok = engageApi34(plan)
             if (ok) engagedDevice = plan.device
+            if (ok && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) logPreferredApi34(plan.device)
             Log.i(TAG, "setPreferredMixerAttributes(${plan.device.productName}, ${plan.output}) -> $ok")
             ok
         } catch (e: RuntimeException) {
@@ -122,12 +189,23 @@ class BitPerfectOutputManager @Inject constructor(
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    private fun logPreferredApi34(device: AudioDeviceInfo) {
+        val preferred = audioManager.getPreferredMixerAttributes(audioAttributes, device)
+        Log.i(TAG, "preferred mixer attrs now: ${preferred?.let { "behavior=${it.mixerBehavior} rate=${it.format.sampleRate} mask=${it.format.channelMask} enc=${it.format.encoding}" }}")
+    }
+
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private fun engageApi34(plan: BitPerfectPlan): Boolean =
         audioManager.setPreferredMixerAttributes(
             audioAttributes,
             plan.device,
             plan.mixerAttributes as AudioMixerAttributes
         )
+
+    /** A bit-perfect attempt failed on this device: stop trying until the user turns it back on. */
+    fun reportFailure() {
+        preferences.setBitPerfectEnabled(false)
+    }
 
     /** Hands the DAC back to the normal mixer (system sounds, other apps). */
     fun disengage() {

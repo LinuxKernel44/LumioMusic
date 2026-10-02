@@ -210,7 +210,7 @@ from Media3 natively, no custom parsing needed.
 
 ## Version
 
-Current version: **2.1.0** (`versionCode 3`, set in `app/build.gradle.kts`). `v0.1.0` was the
+Current version: **2.1.1** (`versionCode 4`, set in `app/build.gradle.kts`). `v0.1.0` was the
 first signed release; 2.0.0 is the first release that treats the phase 0-9 feature set as the
 baseline. Bump `versionCode` on every release; release tags are `vX.Y.Z`.
 
@@ -300,6 +300,36 @@ emulator/device before being committed, not just compiled.
       speaker with a temporary fake plan that was removed again). **Not verified**: the real
       USB-DAC part (`getSupportedMixerAttributes`/`setPreferredMixerAttributes` on a OnePlus 15
       with a DAC) — nobody had that hardware here. If it misbehaves, check `LumioHiRes` logs first.
+### OnePlus 15 + USB DAC findings (verified over wireless adb, 2.1.1)
+
+The platform's Android 14+ bit-perfect path (`setPreferredMixerAttributes`) is **fragile on the
+OnePlus 15 (Android 16, Qualcomm HAL, DAC "KT USB Audio", `TYPE_USB_HEADSET`, 44.1/48/96 kHz,
+16/24-bit)**, so it is **off by default and labelled experimental** (`HiResPreferences`, key
+`bit_perfect_usb_enabled_v2`). What was observed in the system logs:
+- **24-bit packed is misaligned**: PAL logs `USB_AUDIO-RX ... data_fmt 96000 2 32` and "BitPerfect
+  Playback, hence select PCM_IMMUTABLE" - the backend uses 32-bit slots while the track writes 3-byte
+  samples, so the track drains exactly 4/3 too fast and the DAC gets garbage. `BitPerfectAudioSink`
+  measures this (consumption ratio > 1.15 after 1.5 s) and falls back to the Android mixer, then
+  switches bit-perfect off for good (`BitPerfectOutputManager.reportFailure`).
+- **Preferred mixer attributes outlive the process.** After a kill/crash the entry (`dumpsys
+  media.audio_policy` -> "Preferred mixer audio configuration", with a phantom "active clients
+  count") stays and routes *every* track of the uid to the bit-perfect output, so even the normal
+  path fails to start (`restoreTrack_l ... status -32`, "startSource, fails as there is bit-perfect
+  playback active"). `BitPerfectOutputManager` therefore clears stale entries at process start
+  and whenever a DAC is attached.
+- **The bit-perfect output is not reopened when the requested format changes**: a request for a
+  different rate/depth reuses the old output and fails with -32. Only matching formats start.
+- **16-bit bit-perfect was not tested** (no failing evidence for it; the 16-bit FE/BE formats should match).
+- **The normal path is already rate-matched**: float AudioTrack -> `hifi_playback` output opened at the
+  file's rate (96 kHz verified), 24-bit container, DSP-converted (no PCM_IMMUTABLE) - it plays
+  correctly. 44.1 kHz routing was not verified yet.
+- Real bit-perfect for 24-bit on this phone would need a direct USB (UAC) driver in `:audio-native`
+  (usbfs isochronous transfers); not built - a large separate project.
+
+Debugging tips: the phone's log buffer is only 256 KiB (about a minute): run `adb logcat -G 16M`
+first and capture to a file. With the DAC on the USB-C port, use wireless debugging
+(`adb connect <ip>:<connect-port>`; the port shown under "Wireless debugging", not the pairing port).
+
 - Also in 2.1.0: add-to-playlist button on album tracks.
 
 ## Release signing

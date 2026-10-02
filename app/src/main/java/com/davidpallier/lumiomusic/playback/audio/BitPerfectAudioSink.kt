@@ -67,6 +67,11 @@ class BitPerfectAudioSink(
     private val checkpoints = ArrayDeque<Checkpoint>()
     private var expectedNextPtsUs = C.TIME_UNSET
     private val timestamp = AudioTimestamp()
+    private var playingSinceMs = 0L
+    private var rateCheckStartMs = 0L
+    private var rateCheckStartFrames = 0L
+    private var rateCheckDone = false
+    private var lastDiagLogMs = 0L
 
     // region configuration
 
@@ -127,6 +132,7 @@ class BitPerfectAudioSink(
         val cfg = config ?: throw IllegalStateException("handleBuffer before configure")
         if (track == null) initializeTrack(cfg)
 
+        checkForStall(cfg)
         if (outBuffer.hasRemaining()) {
             writePendingOutput()
             if (outBuffer.hasRemaining()) return false
@@ -160,6 +166,62 @@ class BitPerfectAudioSink(
         outBuffer.flip()
         writePendingOutput()
         return true
+    }
+
+    /**
+     * A bit-perfect route that accepts data but never plays it is worse than useless (silence), so
+     * if the track is playing, has data, and has consumed nothing after [STALL_MS], give up: the
+     * router catches this and falls back to the regular Android mixer.
+     */
+    private fun checkForStall(cfg: Config) {
+        val t = track ?: return
+        if (!playing || writtenFrames == 0L) {
+            playingSinceMs = 0
+            return
+        }
+        val now = SystemClock.elapsedRealtime()
+        if (playingSinceMs == 0L) playingSinceMs = now
+        val consumed = consumedFrames(t)
+        if (now - lastDiagLogMs > DIAG_LOG_MS) {
+            lastDiagLogMs = now
+            Log.i(TAG, "track: playState=${t.playState} written=$writtenFrames consumed=$consumed " +
+                "underruns=${t.underrunCount} routed=${t.routedDevice?.productName} " +
+                "format=${cfg.plan.output} bufferFrames=${t.bufferSizeInFrames}")
+        }
+        checkConsumptionRate(t, cfg, consumed, now)
+        if (consumed == 0L && now - playingSinceMs > STALL_MS) {
+            Log.w(TAG, "AudioTrack consumed nothing for ${now - playingSinceMs} ms (written=$writtenFrames) - giving up on bit-perfect")
+            throw AudioSink.InitializationException(
+                "Bit-perfect AudioTrack stalled", t.playState, cfg.inputFormat, false, null
+            )
+        }
+    }
+
+    /**
+     * A track can never legitimately drain faster than its sample rate. On the OnePlus 15 the HAL
+     * configures the USB backend with 32-bit slots for 24-bit audio while the track writes packed
+     * 3-byte samples, so the stream drains exactly 4/3 too fast and the DAC gets misaligned data.
+     * Anything clearly faster than real time means the format isn't understood end to end.
+     */
+    private fun checkConsumptionRate(t: AudioTrack, cfg: Config, consumed: Long, now: Long) {
+        if (rateCheckDone || consumed == 0L) return
+        if (rateCheckStartMs == 0L) {
+            rateCheckStartMs = now
+            rateCheckStartFrames = consumed
+            return
+        }
+        val elapsedMs = now - rateCheckStartMs
+        if (elapsedMs < RATE_CHECK_MS) return
+        rateCheckDone = true
+        val expectedFrames = cfg.sampleRate * elapsedMs / 1000.0
+        val ratio = (consumed - rateCheckStartFrames) / expectedFrames
+        Log.i(TAG, "consumption ratio vs nominal rate: %.3f over %d ms".format(ratio, elapsedMs))
+        if (ratio > MAX_RATE_RATIO) {
+            Log.w(TAG, "AudioTrack drains %.2fx faster than real time - the DAC is not reading this format as sent".format(ratio))
+            throw AudioSink.InitializationException(
+                "Bit-perfect stream drains too fast", t.playState, cfg.inputFormat, false, null
+            )
+        }
     }
 
     private fun initializeTrack(cfg: Config) {
@@ -201,6 +263,7 @@ class BitPerfectAudioSink(
         track = newTrack
         trackConfig = cfg
         resetCounters()
+        playingSinceMs = 0
         if (audioSessionId == C.AUDIO_SESSION_ID_UNSET) listener?.onAudioSessionIdChanged(newTrack.audioSessionId)
         if (playing) newTrack.play()
     }
@@ -211,8 +274,8 @@ class BitPerfectAudioSink(
         while (outBuffer.hasRemaining()) {
             val written = t.write(outBuffer, outBuffer.remaining(), AudioTrack.WRITE_NON_BLOCKING)
             if (written < 0) {
-                outBuffer.position(outBuffer.limit()) // drop it; the error surfaces via position stalling/underrun
-                Log.w(TAG, "AudioTrack.write failed: $written")
+                outBuffer.position(outBuffer.limit()) // drop it; a dead track is caught by the stall check
+                Log.w(TAG, "AudioTrack.write failed: $written (playState=${t.playState})")
                 return
             }
             if (written == 0) return
@@ -337,6 +400,9 @@ class BitPerfectAudioSink(
         needsSync = true
         expectedNextPtsUs = C.TIME_UNSET
         positionAdvancingNotified = false
+        rateCheckStartMs = 0
+        rateCheckStartFrames = 0
+        rateCheckDone = false
     }
 
     // endregion
@@ -370,5 +436,9 @@ class BitPerfectAudioSink(
         const val INITIAL_OUT_BYTES = 64 * 1024
         const val BUFFER_MS = 300
         const val PTS_JUMP_US = 200_000L
+        const val STALL_MS = 2_500L
+        const val RATE_CHECK_MS = 1_500L
+        const val MAX_RATE_RATIO = 1.15
+        const val DIAG_LOG_MS = 2_000L
     }
 }
