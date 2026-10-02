@@ -182,6 +182,26 @@ Current version: **2.0.0** (`versionCode 2`, set in `app/build.gradle.kts`). `v0
 first signed release; 2.0.0 is the first release that treats the phase 0-9 feature set as the
 baseline. Bump `versionCode` on every release; release tags are `vX.Y.Z`.
 
+### 2.0.0 device pass (Galaxy S10 SM-G973F, Android 12, adb)
+
+The 2.0.0 release was verified on the real dev phone (library in `/sdcard/Music/Bandcamp/...`,
+picked via SAF — note Android refuses the storage root and `Download`; pick `Music/Bandcamp`).
+Fixed in that pass:
+- Nested `Scaffold`s double-applied window insets (big empty bands top/bottom). The outer
+  scaffold in `NavGraph.kt` now has zero insets; screens own their insets.
+- Mini player was hidden under the system nav bar / tab bar. It now sits **above** the tab bar
+  inside `LibraryHostScreen`, and is hosted by the outer scaffold (with nav-bar padding) elsewhere.
+- Lyrics screen: transport controls were cut off by the nav bar; status/nav bar icons were dark
+  on the always-dark screen; added elapsed/total time labels.
+- Album/playlist detail: last rows were covered by the extended FAB (`withFabClearance`).
+- Playlists can now be renamed/deleted (⋮ menu on the playlist screen).
+- Search field auto-focuses, system Back closes search; count labels use plurals.
+
+Findings worth knowing: **AAudio EXCLUSIVE is never granted on the S10** (`LumioAAudioFeasibility`
+logs a silent downgrade to shared on every launch), so the full custom exclusive `AudioSink` is
+not worth building for this device. Some Bandcamp FLACs carry a truncated `LYRICS` tag (e.g.
+*Panorama*: 5 lines); embedded lyrics still win per the priority rule.
+
 ## Status (update this section as phases land)
 
 Phases refer to the original build plan; each was manually verified end-to-end on a real

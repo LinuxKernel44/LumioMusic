@@ -50,4 +50,20 @@ class PlaylistDetailViewModel @Inject constructor(
     fun removeTrack(track: TrackEntity) {
         viewModelScope.launch { playlistRepository.removeTrack(playlistId, track.id) }
     }
+
+    fun rename(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch {
+            playlistRepository.renamePlaylist(playlistId, trimmed)
+            _playlistName.value = trimmed
+        }
+    }
+
+    fun delete(onDeleted: () -> Unit) {
+        viewModelScope.launch {
+            playlistRepository.deletePlaylist(playlistId)
+            onDeleted()
+        }
+    }
 }

@@ -2,6 +2,9 @@ package com.davidpallier.lumiomusic.ui.navigation
 
 import android.net.Uri
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
@@ -24,6 +27,7 @@ import com.davidpallier.lumiomusic.ui.library.LibraryHostScreen
 import com.davidpallier.lumiomusic.ui.library.PlaylistDetailScreen
 import com.davidpallier.lumiomusic.ui.lyrics.LyricsScreen
 import com.davidpallier.lumiomusic.ui.nowplaying.MiniPlayerBar
+import com.davidpallier.lumiomusic.ui.nowplaying.PlaybackViewModel
 import com.davidpallier.lumiomusic.ui.setup.FolderPickerScreen
 import com.davidpallier.lumiomusic.ui.setup.ScanProgressScreen
 import androidx.navigation.NavType
@@ -45,26 +49,37 @@ private object Routes {
 }
 
 @Composable
-fun LumioNavHost(navController: NavHostController = rememberNavController()) {
+fun LumioNavHost(
+    navController: NavHostController = rememberNavController(),
+    playbackViewModel: PlaybackViewModel = hiltViewModel()
+) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    val showMiniPlayer = currentRoute != null &&
+    val hasMedia by playbackViewModel.state.collectAsState()
+    // The library screen hosts the mini player itself (above its tab bar); the other screens get
+    // it from this outer scaffold.
+    val showOuterMiniPlayer = hasMedia.hasMedia && currentRoute != null &&
         currentRoute != Routes.ROOT &&
         currentRoute != Routes.PICKER &&
         currentRoute != Routes.SCANNING &&
-        currentRoute != Routes.NOW_PLAYING
+        currentRoute != Routes.NOW_PLAYING &&
+        currentRoute != Routes.LIBRARY
+    val openNowPlaying = { navController.navigate(Routes.NOW_PLAYING) }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            if (showMiniPlayer) {
-                MiniPlayerBar(onClick = { navController.navigate(Routes.NOW_PLAYING) })
+            if (showOuterMiniPlayer) {
+                MiniPlayerBar(padForNavigationBar = true, onClick = openNowPlaying)
             }
         }
     ) { innerPadding ->
         NavHost(
             navController = navController,
             startDestination = Routes.ROOT,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier
+                .padding(innerPadding)
+                .then(if (showOuterMiniPlayer) Modifier.consumeWindowInsets(WindowInsets.navigationBars) else Modifier)
         ) {
             composable(Routes.ROOT) {
                 RootRedirect(navController)
@@ -85,6 +100,7 @@ fun LumioNavHost(navController: NavHostController = rememberNavController()) {
             }
             composable(Routes.LIBRARY) {
                 LibraryHostScreen(
+                    onOpenNowPlaying = openNowPlaying,
                     onOpenAlbum = { album -> navController.navigate(Routes.albumDetail(album)) },
                     onOpenArtist = { artist -> navController.navigate(Routes.artistDetail(artist)) },
                     onOpenPlaylist = { playlistId -> navController.navigate(Routes.playlistDetail(playlistId)) }

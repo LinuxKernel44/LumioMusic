@@ -1,7 +1,9 @@
 package com.davidpallier.lumiomusic.ui.library
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -33,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +44,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.davidpallier.lumiomusic.R
@@ -48,12 +54,14 @@ import com.davidpallier.lumiomusic.data.db.TrackEntity
 import com.davidpallier.lumiomusic.ui.common.AddToPlaylistDialog
 import com.davidpallier.lumiomusic.ui.common.AlbumGridItem
 import com.davidpallier.lumiomusic.ui.common.TrackListItem
+import com.davidpallier.lumiomusic.ui.nowplaying.MiniPlayerBar
 
 private enum class LibraryTab { TRACKS, ALBUMS, ARTISTS, PLAYLISTS }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryHostScreen(
+    onOpenNowPlaying: () -> Unit,
     onOpenAlbum: (String) -> Unit,
     onOpenArtist: (String) -> Unit,
     onOpenPlaylist: (Long) -> Unit,
@@ -63,6 +71,12 @@ fun LibraryHostScreen(
     var searchActive by rememberSaveable { mutableStateOf(false) }
     var pendingAddToPlaylistTrack by remember { mutableStateOf<TrackEntity?>(null) }
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val searchFocusRequester = remember { FocusRequester() }
+
+    BackHandler(enabled = searchActive) {
+        searchActive = false
+        viewModel.setSearchQuery("")
+    }
 
     pendingAddToPlaylistTrack?.let { track ->
         val playlists by viewModel.playlists.collectAsState()
@@ -83,8 +97,12 @@ fun LibraryHostScreen(
                             value = searchQuery,
                             onValueChange = viewModel::setSearchQuery,
                             placeholder = { Text(stringResource(R.string.library_search_hint)) },
-                            modifier = Modifier.fillMaxWidth()
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(searchFocusRequester)
                         )
+                        LaunchedEffect(Unit) { searchFocusRequester.requestFocus() }
                     },
                     navigationIcon = {
                         IconButton(onClick = {
@@ -110,8 +128,9 @@ fun LibraryHostScreen(
             }
         },
         bottomBar = {
-            if (!searchActive) {
-                NavigationBar {
+            Column {
+                MiniPlayerBar(padForNavigationBar = searchActive, onClick = onOpenNowPlaying)
+                if (!searchActive) NavigationBar {
                     NavigationBarItem(
                         selected = selectedTab == LibraryTab.TRACKS,
                         onClick = { selectedTab = LibraryTab.TRACKS },
@@ -201,11 +220,9 @@ fun LibraryHostScreen(
                                         headlineContent = { Text(artist.artist) },
                                         supportingContent = {
                                             Text(
-                                                stringResource(
-                                                    R.string.artist_album_count,
-                                                    artist.albumCount,
-                                                    artist.trackCount
-                                                )
+                                                pluralStringResource(R.plurals.album_count, artist.albumCount, artist.albumCount) +
+                                                    " · " +
+                                                    pluralStringResource(R.plurals.track_count, artist.trackCount, artist.trackCount)
                                             )
                                         },
                                         modifier = Modifier
@@ -226,7 +243,7 @@ fun LibraryHostScreen(
                                     ListItem(
                                         headlineContent = { Text(playlist.name) },
                                         supportingContent = {
-                                            Text(stringResource(R.string.album_track_count, playlist.trackCount))
+                                            Text(pluralStringResource(R.plurals.track_count, playlist.trackCount, playlist.trackCount))
                                         },
                                         modifier = Modifier
                                             .fillMaxWidth()

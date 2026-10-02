@@ -21,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.davidpallier.lumiomusic.R
 import com.davidpallier.lumiomusic.ui.common.TrackListItem
+import com.davidpallier.lumiomusic.ui.common.withFabClearance
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +47,7 @@ fun AlbumDetailScreen(onNavigateBack: () -> Unit, viewModel: AlbumDetailViewMode
             )
         }
     ) { innerPadding ->
-        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = innerPadding) {
+        LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = withFabClearance(innerPadding)) {
             items(tracks, key = { it.id }) { track ->
                 TrackListItem(track = track, onClick = { viewModel.play(track) })
             }

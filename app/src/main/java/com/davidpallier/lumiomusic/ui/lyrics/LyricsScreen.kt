@@ -1,5 +1,6 @@
 package com.davidpallier.lumiomusic.ui.lyrics
 
+import android.app.Activity
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import androidx.compose.foundation.background
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -32,6 +34,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -46,11 +49,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.davidpallier.lumiomusic.R
@@ -61,6 +66,8 @@ import com.davidpallier.lumiomusic.playback.PlaybackUiState
 fun LyricsScreen(onNavigateBack: () -> Unit, viewModel: LyricsViewModel = hiltViewModel()) {
     val playbackState by viewModel.playbackState.collectAsState()
     val lyricsState by viewModel.lyrics.collectAsState()
+
+    LightSystemBarIcons()
 
     Box(modifier = Modifier.fillMaxSize()) {
         BlurredArtworkBackground(artworkUri = playbackState.artworkUri?.toString())
@@ -79,6 +86,25 @@ fun LyricsScreen(onNavigateBack: () -> Unit, viewModel: LyricsViewModel = hiltVi
 
             NowPlayingHeader(playbackState)
             PlaybackControls(playbackState = playbackState, viewModel = viewModel)
+        }
+    }
+}
+
+/** This screen is always dark, so system bar icons must be light regardless of the app theme. */
+@Composable
+private fun LightSystemBarIcons() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val window = (view.context as? Activity)?.window
+        if (window == null) return@DisposableEffect onDispose {}
+        val controller = WindowCompat.getInsetsController(window, view)
+        val previousStatus = controller.isAppearanceLightStatusBars
+        val previousNav = controller.isAppearanceLightNavigationBars
+        controller.isAppearanceLightStatusBars = false
+        controller.isAppearanceLightNavigationBars = false
+        onDispose {
+            controller.isAppearanceLightStatusBars = previousStatus
+            controller.isAppearanceLightNavigationBars = previousNav
         }
     }
 }
@@ -214,12 +240,22 @@ private fun NowPlayingHeader(state: PlaybackUiState) {
     }
 }
 
+private fun formatTime(ms: Long): String {
+    val totalSeconds = (ms / 1000).coerceAtLeast(0)
+    return "%d:%02d".format(totalSeconds / 60, totalSeconds % 60)
+}
+
 @Composable
 private fun PlaybackControls(playbackState: PlaybackUiState, viewModel: LyricsViewModel) {
     var isDragging by remember { mutableStateOf(false) }
     var dragPositionMs by remember { mutableFloatStateOf(0f) }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 24.dp, vertical = 8.dp)
+    ) {
         val duration = playbackState.durationMs.coerceAtLeast(1L)
         val sliderValue = if (isDragging) dragPositionMs else playbackState.positionMs.toFloat()
 
@@ -242,7 +278,15 @@ private fun PlaybackControls(playbackState: PlaybackUiState, viewModel: LyricsVi
         )
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(formatTime(sliderValue.toLong()), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium)
+            Text(formatTime(duration), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.labelMedium)
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {

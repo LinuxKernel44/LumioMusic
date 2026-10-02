@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.davidpallier.lumiomusic.R
@@ -60,7 +61,7 @@ fun AddToPlaylistDialog(
                             ListItem(
                                 headlineContent = { Text(playlist.name) },
                                 supportingContent = {
-                                    Text(stringResource(R.string.album_track_count, playlist.trackCount))
+                                    Text(pluralStringResource(R.plurals.track_count, playlist.trackCount, playlist.trackCount))
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()

@@ -26,8 +26,6 @@
     <string name="library_search_close_action">Close search</string>
     <string name="library_rescan_action">Rescan library</string>
     <string name="library_empty">No tracks yet</string>
-    <string name="album_track_count">%1$d track(s)</string>
-    <string name="artist_album_count">%1$d album(s) · %2$d track(s)</string>
     <string name="navigate_back">Back</string>
 
     <string name="lyrics_loading">Loading lyrics…</string>
@@ -45,6 +43,10 @@
     <string name="new_playlist_action">New playlist</string>
     <string name="remove_from_playlist_action">Remove from playlist</string>
     <string name="delete_playlist_action">Delete playlist</string>
+    <string name="delete_playlist_confirm_message">Delete \"%1$s\"? The tracks themselves are not deleted.</string>
+    <string name="rename_playlist_action">Rename playlist</string>
+    <string name="rename_playlist_confirm">Rename</string>
+    <string name="playlist_more_options">More options</string>
 
     <string name="browse_albums">Albums</string>
     <string name="browse_artists">Artists</string>
@@ -53,4 +55,12 @@
     <string name="albums_empty">No albums yet</string>
     <string name="artists_empty">No artists yet</string>
     <string name="search_empty">No results</string>
+    <plurals name="track_count">
+        <item quantity="one">%1$d track</item>
+        <item quantity="other">%1$d tracks</item>
+    </plurals>
+    <plurals name="album_count">
+        <item quantity="one">%1$d album</item>
+        <item quantity="other">%1$d albums</item>
+    </plurals>
 </resources>
