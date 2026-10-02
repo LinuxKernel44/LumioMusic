@@ -61,6 +61,7 @@ import coil3.compose.AsyncImage
 import com.davidpallier.lumiomusic.R
 import com.davidpallier.lumiomusic.data.tags.SyncedLyricsLine
 import com.davidpallier.lumiomusic.playback.PlaybackUiState
+import com.davidpallier.lumiomusic.ui.nowplaying.AudioOutputChip
 
 @Composable
 fun LyricsScreen(onNavigateBack: () -> Unit, viewModel: LyricsViewModel = hiltViewModel()) {
@@ -85,6 +86,7 @@ fun LyricsScreen(onNavigateBack: () -> Unit, viewModel: LyricsViewModel = hiltVi
             }
 
             NowPlayingHeader(playbackState)
+            AudioOutputChip()
             PlaybackControls(playbackState = playbackState, viewModel = viewModel)
         }
     }

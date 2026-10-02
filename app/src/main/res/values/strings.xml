@@ -63,4 +63,24 @@
         <item quantity="one">%1$d album</item>
         <item quantity="other">%1$d albums</item>
     </plurals>
+    <string name="audio_output_title">Audio output</string>
+    <string name="audio_output_usb_bit_perfect">USB DAC · Bit-perfect · %1$s</string>
+    <string name="audio_output_system_mixer">Android mixer · %1$s</string>
+    <string name="audio_output_format">%1$d-bit / %2$s</string>
+    <string name="audio_output_format_float">%1$d-bit float / %2$s</string>
+    <string name="audio_output_no_dac">No USB DAC connected</string>
+    <string name="audio_output_dac_name">USB DAC: %1$s</string>
+    <string name="audio_output_bit_perfect_switch">Bit-perfect USB output</string>
+    <string name="audio_output_bit_perfect_summary">Sends the file\'s exact samples and sample rate to the DAC, bypassing Android\'s mixer and resampler (Android 14+).</string>
+    <string name="audio_output_volume_warning">Bit-perfect bypasses Android\'s software volume. If your DAC has no hardware volume, the volume keys may not change the level: start with the DAC\'s gain low before putting in-ear monitors on.</string>
+    <string name="audio_output_close">Close</string>
+    <string name="audio_output_reason_os_too_old">Bit-perfect USB output needs Android 14 or newer.</string>
+    <string name="audio_output_reason_disabled">Bit-perfect output is turned off.</string>
+    <string name="audio_output_reason_device_unsupported">This phone and DAC combination doesn\'t offer a bit-perfect mode.</string>
+    <string name="audio_output_reason_sample_rate">The DAC doesn\'t accept this sample rate bit-perfectly.</string>
+    <string name="audio_output_reason_channels">The DAC doesn\'t accept this channel layout bit-perfectly.</string>
+    <string name="audio_output_reason_encoding">The DAC can\'t take this bit depth without reducing it.</string>
+    <string name="audio_output_reason_lossy">Lossy file (MP3/AAC): bit-perfect isn\'t needed.</string>
+    <string name="audio_output_reason_source">This source format isn\'t supported by the bit-perfect path.</string>
+    <string name="audio_output_reason_rejected">The DAC refused bit-perfect mode; using the Android mixer instead.</string>
 </resources>

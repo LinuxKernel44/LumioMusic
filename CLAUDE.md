@@ -10,7 +10,10 @@ than a generic player:
    heavily gaussian-blurred (native `RenderEffect`, available unconditionally since minSdk is
    31) with a dark scrim over it.
 2. **Best-effort hi-res / bit-perfect audio path**, since the user cares about lossless
-   playback quality, primarily over the phone's headphone jack (not a USB DAC).
+   playback quality. The target setup is a **OnePlus 15 (CPH2747, Android 16) → USB-C DAC →
+   in-ear monitors** (no headphone jack); the dev phone is a Galaxy S10 (Android 12), which has
+   no bit-perfect support, so everything USB-specific is verified by unit tests and by
+   exercising the same code on the S10's speaker, never on a real DAC (see *Hi-res audio plan*).
 
 The project language is English throughout: code, comments, commit messages, UI strings, this
 file. (The person's own conversation with their assistant may be in French — that's unrelated
@@ -61,7 +64,10 @@ data/tags/     Embedded tag/cover/lyrics extraction (built on Media3's MetadataR
 data/lyrics/   LyricsProvider chain, LRC parsing, lyrics Room cache (Phase 4+)
 data/network/  Retrofit/OkHttp clients for LRCLIB / lyrics.ovh (Phase 4+)
 data/playlist/ Playlist/queue persistence (Phase 6+)
-playback/      MediaLibraryService, MediaSession, Android Auto browse tree, custom AudioSink
+playback/      MediaLibraryService, MediaSession, Android Auto browse tree
+playback/audio/        Hi-res path: BitPerfectAudioSink, RoutingAudioSink, BitPerfectOutputManager,
+                       UsbDacMonitor, BitPerfectPlanner/PcmConverter (pure, unit-tested), status/prefs
+playback/audio/flac/   Pure-Kotlin FLAC decoder + Media3 renderer (integer PCM at native depth)
 ui/            theme/, navigation/, library/, nowplaying/, lyrics/, playlists/, setup/, settings/, common/
 
 audio-native/src/main/cpp/                                   CMakeLists.txt, JNI bridge, AAudio sink (Phase 8+)
@@ -167,18 +173,44 @@ from Media3 natively, no custom parsing needed.
   (see `di/DatabaseModule.kt`) so the schema can keep evolving phase to phase without
   hand-written migrations. Switch to real migrations before this app has any real user data
   worth preserving across upgrades.
-- **Hi-res audio plan**: decode losslessly and output at the file's native PCM depth/rate via
-  Media3's `DefaultAudioSink` (float output) as the baseline — this helps on every device.  On
-  top of that, a best-effort `AAUDIO_SHARING_MODE_EXCLUSIVE` path targeting the phone's
-  *internal* output (not USB — the user primarily uses the headphone jack, not an external DAC)
-  is planned for `:audio-native`, with **mandatory fallback**: always check
-  `AAudioStream_getSharingMode()` after opening a stream and silently fall back to the standard
-  Media3 path if exclusive mode wasn't actually granted — many devices downgrade silently.
-  Never assume exclusive mode succeeded.
+- **Hi-res audio path** (OnePlus 15 + USB DAC; the old AAudio-exclusive/headphone-jack plan is
+  superseded — see Phase 8/10 below):
+  1. **Decoding**: the platform FLAC codec is *not* used. It narrows 24-bit to 16-bit, and
+     asking it for float output is unreliable (on the S10/Android 12 it ignores the request while
+     Media3 assumes float → playback at 2× speed). `FlacAudioRenderer` (registered *before*
+     `MediaCodecAudioRenderer` in `PlaybackModule`) decodes FLAC with the pure-Kotlin
+     `FlacFrameDecoder` to integer PCM 16/24/32-bit at the file's native depth. It is verified
+     bit-exact against the MD5 the reference `flac` encoder stores in STREAMINFO
+     (`FlacFrameDecoderTest`, fixtures in `app/src/test/resources/flac/`). MP3/AAC etc. still use
+     MediaCodec (16-bit).
+  2. **Baseline output** (every device, no DAC): `DefaultAudioSink` with float output, so 24-bit
+     stays lossless into Android's mixer (which then resamples to its fixed rate).
+     `RoutingAudioSink.getFormatSupport` reports float PCM as "needs transcoding" on purpose, so
+     `MediaCodecAudioRenderer` never asks platform codecs for float (see above).
+  3. **USB bit-perfect** (Android 14+ only): when a USB DAC is attached, the file is lossless FLAC
+     (no gapless-trim info, i.e. not MP3/AAC), and the DAC's
+     `AudioManager.getSupportedMixerAttributes()` lists a `MIXER_BEHAVIOR_BIT_PERFECT` format with
+     the **exact** sample rate/channel count and an integer width ≥ the source, `RoutingAudioSink`
+     switches to `BitPerfectAudioSink`: it registers those attributes with
+     `setPreferredMixerAttributes`, opens an `AudioTrack` in exactly that format, and converts PCM
+     exactly (`PcmConverter`; float32 that came from ≤24-bit audio round-trips to the identical
+     integers). Never resamples; an unsupported rate falls back to the Android mixer.
+  4. **Mandatory fallback**: any refusal/exception while bringing the bit-perfect path up makes
+     the router fall back to `DefaultAudioSink` for the rest of the process (`DAC_REJECTED`)
+     instead of failing playback. Switching sinks mid-queue drains the old sink first. The user
+     can also switch it off (Audio output panel on the lyrics screen, `HiResPreferences`).
+  5. **Visibility**: `AudioOutputStatusStore` + the chip on the lyrics screen show
+     "USB DAC · Bit-perfect · 24-bit / 96 kHz" or why the Android mixer is used.
+  - Caution that is *not* solvable in code: with bit-perfect Android bypasses its software volume;
+    DACs without hardware volume may ignore the volume keys (the sink applies `setVolume` in
+    software only when ≠ 1). The UI warns about this for in-ear monitors.
+  - Diagnostics on the phone: `adb logcat -s LumioHiRes`, and
+    `adb shell dumpsys audio | grep -i -B2 -A8 "mixer"` /
+    `adb shell dumpsys media.audio_flinger` to see whether the track is bit-perfect.
 
 ## Version
 
-Current version: **2.0.0** (`versionCode 2`, set in `app/build.gradle.kts`). `v0.1.0` was the
+Current version: **2.1.0** (`versionCode 3`, set in `app/build.gradle.kts`). `v0.1.0` was the
 first signed release; 2.0.0 is the first release that treats the phase 0-9 feature set as the
 baseline. Bump `versionCode` on every release; release tags are `vX.Y.Z`.
 
@@ -248,7 +280,9 @@ emulator/device before being committed, not just compiled.
       emulator it correctly detected and logged a silent downgrade to shared mode — check this
       log on the real phone before deciding whether the full custom `AudioSink` is worth
       building. That full `AudioSink` adapter itself is *not* implemented — this phase
-      intentionally stops at the spike.
+      intentionally stops at the spike. **Superseded**: exclusive mode is never granted on the
+      S10, and the real target is a USB DAC, handled by Phase 10 (Android's bit-perfect mixer).
+      `:audio-native` and the startup feasibility log are kept but no longer drive anything.
 - [~] **Phase 9** — Polish: empty/error states audited and filled in across all library tabs and
       detail screens; unit tests added for `LrcParser` and `Id3UsltSyltDecoder` (13 tests, all
       passing — `./gradlew :app:testDebugUnitTest`). Production signing config was already wired
@@ -257,6 +291,16 @@ emulator/device before being committed, not just compiled.
       actual signed release — both left for the person to decide on/do, since a release keystore
       and a published GitHub Release are exactly the kind of machine-specific, externally-visible
       steps this file says to keep off the assistant's plate.
+
+- [x] **Phase 10** — Hi-res USB path (see *Hi-res audio path*): pure-Kotlin FLAC decoder
+      (bit-exact vs reference MD5s, 6 fixtures), `RoutingAudioSink` + `BitPerfectAudioSink`,
+      USB DAC monitor, Android 14 bit-perfect mixer registration, status chip + settings panel.
+      Verified on the S10: normal playback speed/position/seek/pause, 16/44.1 and 24/96 FLAC,
+      MP3, format switches mid-queue (including through `BitPerfectAudioSink`, exercised on the
+      speaker with a temporary fake plan that was removed again). **Not verified**: the real
+      USB-DAC part (`getSupportedMixerAttributes`/`setPreferredMixerAttributes` on a OnePlus 15
+      with a DAC) — nobody had that hardware here. If it misbehaves, check `LumioHiRes` logs first.
+- Also in 2.1.0: add-to-playlist button on album tracks.
 
 ## Release signing
 
